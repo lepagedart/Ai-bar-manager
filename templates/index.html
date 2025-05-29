@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI Bar Manager</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <img src="{{ url_for('static', filename='raise_the_bar_logo_web.png') }}" 
+         alt="Raise the Bar Consulting" 
+         style="height: 120px; margin-bottom: 30px;">
+
+    <h1>Ask the Bar Manager</h1>
+
+    {% if session.concept %}
+        <p><strong>Current Venue Concept:</strong> {{ session.concept }}</p>
+    {% else %}
+        <form method="POST">
+            <label for="concept"><strong>Venue Concept:</strong></label><br>
+            <input type="text" name="concept" id="concept" size="60" placeholder="e.g. Upscale Southern Bistro, Tiki Bar"><br><br>
+
+            <label for="prompt"><strong>Prompt:</strong></label><br>
+            <textarea name="prompt" rows="4" cols="60" placeholder="Describe what kind of drink you want..."></textarea><br>
+
+            <button type="submit">Submit</button>
+        </form>
+    {% endif %}
+
+    {% if session.concept %}
+        <form method="POST">
+            <label for="prompt"><strong>Your Question:</strong></label><br>
+            <textarea name="prompt" rows="4" cols="60" placeholder="What would you like to ask the bar manager?"></textarea><br>
+            <button type="submit">Submit</button>
+        </form>
+    {% endif %}
+    <form method="POST" action="/download">
+        <button type="submit">Download Session as PDF</button>
+    </form>
+    <form method="POST" action="/reset">
+        <button type="submit" style="margin-top: 10px;">Reset Conversation</button>
+    </form>
+
+    {% if chat_history %}
+        <h2>Conversation:</h2>
+        <div style="border: 1px solid #ccc; padding: 10px;">
+            {% for message in chat_history %}
+                <p><strong>{{ message.role.capitalize() }}:</strong> {{ message.content }}</p>
+            {% endfor %}
+        </div>
+    {% endif %}
+</body>
+</html>
