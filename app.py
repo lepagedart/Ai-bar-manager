@@ -36,7 +36,18 @@ def index():
         prompt = request.form.get("prompt", "").strip()
         if prompt:
             concept = session.get("concept", "")
-            full_prompt = f"Venue concept: {concept}\n\n{prompt}"
+            # 🔍 Retrieve relevant Cocktail Codex context
+            context = retrieve_codex_context(prompt)
+
+            # 📌 Combine context, concept, and user prompt
+            full_prompt = f"""Venue Concept: {concept}
+
+            Relevant context from Cocktail Codex:
+            {context}
+
+            User Prompt:
+            {prompt}
+            """
             session["chat_history"].append({"role": "user", "content": full_prompt})
 
             # Send to OpenAI
@@ -81,6 +92,7 @@ def download():
 
     for message in session["chat_history"]:
         speaker = message["role"].capitalize()
+        speaker = message["role"].capitalize()
         text = f"{speaker}: {message['content']}"
         for line in text.split("\n"):
             pdf.drawString(30, y, line[:100])  # basic line wrapping
@@ -93,6 +105,58 @@ def download():
     buffer.seek(0)
 
     return send_file(buffer, as_attachment=True, download_name="raise_the_bar_ai_summary.pdf", mimetype="application/pdf")
+
+import smtplib
+from email.message import EmailMessage
+
+@app.route("/email", methods=["POST"])
+def email():
+    if "chat_history" not in session or not session["chat_history"]:
+        return "No chat history available", 400
+
+    recipient_email = request.form.get("email", "").strip()
+    if not recipient_email:
+        return "Email address is required", 400
+
+    # Generate PDF
+    buffer = io.BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=letter)
+    width, height = letter
+    pdf.setFont("Helvetica", 12)
+    y = height - 40
+    pdf.drawString(30, y, f"Raise the Bar Consulting - AI Session Summary")
+    y -= 30
+
+    for message in session["chat_history"]:
+        speaker = message["role"].capitalize()
+        text = f"{speaker}: {message['content']}"
+        for line in text.split("\n"):
+            pdf.drawString(30, y, line[:100])  # basic line wrapping
+            y -= 15
+            if y < 40:
+                pdf.showPage()
+                y = height - 40
+
+    pdf.save()
+    buffer.seek(0)
+
+    # Compose Email
+    msg = EmailMessage()
+    msg["Subject"] = "Raise the Bar - AI Session Summary"
+    msg["From"] = os.getenv("SMTP_FROM_EMAIL")
+    msg["To"] = recipient_email
+    msg.set_content("Attached is the PDF summary of your session with Raise the Bar AI Bar Manager.")
+
+    msg.add_attachment(buffer.read(), maintype="application", subtype="pdf", filename="raise_the_bar_ai_summary.pdf")
+
+    # Send Email
+    try:
+        with smtplib.SMTP_SSL(os.getenv("SMTP_SERVER"), int(os.getenv("SMTP_PORT"))) as server:
+            server.login(os.getenv("SMTP_USERNAME"), os.getenv("SMTP_PASSWORD"))
+            server.send_message(msg)
+        return "Email sent successfully!"
+    except Exception as e:
+        return f"Error sending email: {str(e)}", 500
 
 if __name__ == "__main__":
     app.run(debug=True)
