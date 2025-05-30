@@ -15,7 +15,6 @@ load_dotenv()
 # ✅ OpenRouter configuration
 openai.api_key = os.getenv("OPENROUTER_API_KEY")
 openai.base_url = "https://openrouter.ai/api/v1"
-
 # 📖 Load system prompt
 with open("system_prompt.txt", "r") as file:
     system_prompt = file.read()
@@ -59,8 +58,7 @@ User Prompt:
                 model="meta-llama/llama-3-8b-instruct",
                 messages=[{"role": "system", "content": system_prompt}] + session["chat_history"]
             )
-
-            reply = response.choices[0].message["content"]
+            reply = response.choices[0].message.content
             session["chat_history"].append({"role": "assistant", "content": reply})
             cocktail = reply
 
