@@ -6,14 +6,13 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# ✅ Load FAISS index from local directory
-db = FAISS.load_local(
-    "codex_faiss_index",
-    HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2"),
-    allow_dangerous_deserialization=True
-)
+# Load FAISS index from the new vector_index directory
+VECTOR_INDEX_PATH = "vector_index"
+embedding_model = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 
-# ✅ Function to retrieve relevant context for a query
+db = FAISS.load_local(VECTOR_INDEX_PATH, embeddings=embedding_model, allow_dangerous_deserialization=True)
+
+# Function to retrieve relevant context from the vector DB
 def retrieve_codex_context(query):
-    docs = db.similarity_search(query, k=3)  # top 3 chunks
+    docs = db.similarity_search(query, k=3)
     return "\n\n".join(doc.page_content for doc in docs)

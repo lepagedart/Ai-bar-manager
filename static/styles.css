@@ -1,61 +1,69 @@
 body {
-    background-color: #f0f4f8;
-    background-image: url("{{ url_for('static', filename='texture.png') }}"); /* optional background image */
-    background-size: cover;
-    background-repeat: no-repeat;
+    font-family: Arial, sans-serif;
+    background-color: #f7f7f7;
+    margin: 0;
+    padding: 0;
 }
+
+.container {
+    max-width: 800px;
+    margin: 40px auto;
+    background-color: white;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+
 h1 {
-    color: #1f2933;
-    font-size: 32px;
-    border-bottom: 2px solid #5b7ea5;  /* medium steel blue */
-    padding-bottom: 10px;
+    text-align: center;
+    color: #333;
 }
 
 form {
-    margin-bottom: 30px;
+    margin-bottom: 20px;
 }
 
-textarea, input[type="text"] {
+input[type="text"],
+textarea,
+input[type="email"] {
     width: 100%;
-    max-width: 600px;
     padding: 12px;
-    font-size: 16px;
-    border: 1px solid #ccd6e0;
+    margin: 10px 0 20px;
+    border: 1px solid #ccc;
     border-radius: 4px;
-    background-color: #ffffff;
-    color: #1f2933;
+    box-sizing: border-box;
+    font-size: 16px;
 }
 
 button {
-    padding: 10px 20px;
-    background-color: #3e5c76;  /* deep blue slate */
-    color: #ffffff;
-    font-weight: bold;
+    background-color: #333;
+    color: white;
+    padding: 10px 16px;
     border: none;
     border-radius: 4px;
     cursor: pointer;
-    margin-top: 10px;
-    transition: background-color 0.2s ease-in-out;
+    font-size: 16px;
 }
 
 button:hover {
-    background-color: #2c3f56;  /* darker slate on hover */
+    background-color: #555;
 }
 
-div.conversation {
-    background-color: #ffffff;
-    border: 1px solid #ccd6e0;
+.chat-box {
+    background-color: #f1f1f1;
     padding: 15px;
-    max-width: 600px;
-    border-radius: 4px;
+    border-radius: 6px;
+    margin-bottom: 10px;
+}
+
+.chat-box.user {
+    background-color: #dff0d8;
+}
+
+.chat-box.assistant {
+    background-color: #d9edf7;
+}
+
+.email-form {
     margin-top: 20px;
-}
-
-label {
-    font-weight: bold;
-    color: #3e5c76;
-}
-
-p strong {
-    color: #3e5c76;
 }

@@ -2,23 +2,26 @@ from flask import Flask, request, render_template, session, send_file
 from flask_session import Session
 import openai
 import os
+import io
 from dotenv import load_dotenv
 from rag_retriever import retrieve_codex_context
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
-import io
 import smtplib
 from email.message import EmailMessage
 
+# Load environment variables
 load_dotenv()
 
-# ✅ OpenRouter configuration
+# Configure OpenRouter API
 openai.api_key = os.getenv("OPENROUTER_API_KEY")
 openai.base_url = "https://openrouter.ai/api/v1"
-# 📖 Load system prompt
+
+# Load system prompt from file
 with open("system_prompt.txt", "r") as file:
     system_prompt = file.read()
 
+# Initialize Flask app and session
 app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY")
 app.config["SESSION_TYPE"] = "filesystem"
@@ -32,6 +35,7 @@ def index():
         session["chat_history"] = []
 
     if request.method == "POST":
+        # Set venue concept if not already defined
         if "concept" not in session or not session["concept"]:
             concept = request.form.get("concept", "").strip()
             if concept:
@@ -39,6 +43,7 @@ def index():
             else:
                 return render_template("index.html", cocktail="", chat_history=session["chat_history"])
 
+        # Handle prompt
         prompt = request.form.get("prompt", "").strip()
         if prompt:
             concept = session.get("concept", "")
@@ -58,6 +63,7 @@ User Prompt:
                 model="meta-llama/llama-3-8b-instruct",
                 messages=[{"role": "system", "content": system_prompt}] + session["chat_history"]
             )
+
             reply = response.choices[0].message.content
             session["chat_history"].append({"role": "assistant", "content": reply})
             cocktail = reply
@@ -78,16 +84,14 @@ def download():
     buffer = io.BytesIO()
     pdf = canvas.Canvas(buffer, pagesize=letter)
     width, height = letter
-    pdf.setFont("Helvetica", 12)
     y = height - 40
-
+    pdf.setFont("Helvetica", 12)
     pdf.drawString(30, y, "Raise the Bar Consulting - AI Session Summary")
     y -= 30
 
-    for message in session["chat_history"]:
-        speaker = message["role"].capitalize()
-        text = f"{speaker}: {message['content']}"
-        for line in text.split("\n"):
+    for msg in session["chat_history"]:
+        speaker = msg["role"].capitalize()
+        for line in f"{speaker}: {msg['content']}".split("\n"):
             pdf.drawString(30, y, line[:100])
             y -= 15
             if y < 40:
@@ -111,16 +115,14 @@ def email():
     buffer = io.BytesIO()
     pdf = canvas.Canvas(buffer, pagesize=letter)
     width, height = letter
-    pdf.setFont("Helvetica", 12)
     y = height - 40
-
+    pdf.setFont("Helvetica", 12)
     pdf.drawString(30, y, "Raise the Bar Consulting - AI Session Summary")
     y -= 30
 
-    for message in session["chat_history"]:
-        speaker = message["role"].capitalize()
-        text = f"{speaker}: {message['content']}"
-        for line in text.split("\n"):
+    for msg in session["chat_history"]:
+        speaker = msg["role"].capitalize()
+        for line in f"{speaker}: {msg['content']}".split("\n"):
             pdf.drawString(30, y, line[:100])
             y -= 15
             if y < 40:
@@ -143,7 +145,7 @@ def email():
             server.send_message(msg)
         return "Email sent successfully!"
     except Exception as e:
-        app.logger.error(f"Email failed: {e}")
         return f"Error sending email: {str(e)}", 500
+
 if __name__ == "__main__":
     app.run(debug=True)

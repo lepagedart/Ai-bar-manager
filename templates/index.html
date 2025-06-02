@@ -1,56 +1,43 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Raise the Bar - AI Bar Manager</title>
+    <meta charset="UTF-8">
+    <title>Raise the Bar AI</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body>
-    <div class="container">
-        <img src="{{ url_for('static', filename='raise_the_bar_logo.png') }}" alt="Raise the Bar Logo" class="logo">
+<div class="container">
+    <h1>Raise the Bar AI</h1>
 
-        <h1>Raise the Bar - Ask the AI Bar Manager</h1>
-
-        {% if session.concept %}
-            <p><strong>Current Venue Concept:</strong> {{ session.concept }}</p>
+    <form method="POST" action="/">
+        {% if not session.get('concept') %}
+            <label for="concept">Venue Concept:</label>
+            <input type="text" name="concept" id="concept" placeholder="e.g. Upscale farm-to-table bistro">
         {% endif %}
+        <label for="prompt">Your Question:</label>
+        <textarea name="prompt" id="prompt" rows="3" placeholder="e.g. Create a cocktail menu featuring mezcal and citrus..."></textarea>
+        <button type="submit">Ask the AI</button>
+    </form>
 
-        <form method="POST">
-            <label for="concept"><strong>Venue Concept:</strong></label><br>
-            <input type="text" name="concept" id="concept" size="60" placeholder="e.g. Upscale Southern Bistro, Tiki Bar"><br><br>
+    {% for message in chat_history %}
+        <div class="chat-box {{ message.role }}">
+            <strong>{{ message.role.capitalize() }}:</strong>
+            <p>{{ message.content }}</p>
+        </div>
+    {% endfor %}
 
-            <label for="prompt"><strong>Prompt:</strong></label><br>
-            <textarea name="prompt" rows="4" cols="60" placeholder="Describe what kind of drink or guidance you need..."></textarea><br><br>
+    <form method="POST" action="/download">
+        <button type="submit">📄 Download PDF</button>
+    </form>
 
-            <button type="submit">Submit</button>
-        </form>
+    <form method="POST" action="/email" class="email-form">
+        <input type="email" name="email" placeholder="Enter email to receive session summary">
+        <button type="submit">✉️ Send Email</button>
+    </form>
 
-        <form method="POST" action="/reset">
-            <button type="submit" class="secondary">Reset Conversation</button>
-        </form>
-
-        <form method="POST" action="/download">
-            <button type="submit" class="secondary">Download PDF Summary</button>
-        </form>
-
-        <form method="POST" action="/email">
-            <label for="email"><strong>Email the Conversation Summary:</strong></label><br>
-            <input type="email" name="email" id="email" size="40" placeholder="you@example.com" required>
-            <button type="submit">Send Email</button>
-        </form>
-
-        {% if cocktail %}
-            <h2>Response:</h2>
-            <p>{{ cocktail }}</p>
-        {% endif %}
-
-        {% if chat_history %}
-            <h2>Conversation History:</h2>
-            <div class="chat-history">
-                {% for message in chat_history %}
-                    <p><strong>{{ message.role.capitalize() }}:</strong> {{ message.content }}</p>
-                {% endfor %}
-            </div>
-        {% endif %}
-    </div>
+    <form method="POST" action="/reset">
+        <button type="submit">🔄 Reset Session</button>
+    </form>
+</div>
 </body>
 </html>
