@@ -1,6 +1,6 @@
 from flask import Flask, request, render_template, session, send_file
 from flask_session import Session
-import openai
+import openai 
 import os
 import io
 from dotenv import load_dotenv
@@ -14,8 +14,8 @@ from email.message import EmailMessage
 load_dotenv()
 
 # Configure OpenRouter API
-openai.api_key = os.getenv("OPENROUTER_API_KEY")
-openai.base_url = "https://openrouter.ai/api/v1"
+api_key=os.getenv("OPENAI_API_KEY"),
+base_url=os.getenv("OPENAI_BASE_URL")
 
 # Load system prompt from file
 with open("system_prompt.txt", "r") as file:
@@ -60,7 +60,7 @@ User Prompt:
             session["chat_history"].append({"role": "user", "content": full_prompt})
 
             response = openai.ChatCompletion.create(
-                model="meta-llama/llama-3-8b-instruct",
+                model="meta-llama/llama-3.3-8b-instruct:free",
                 messages=[{"role": "system", "content": system_prompt}] + session["chat_history"]
             )
 
