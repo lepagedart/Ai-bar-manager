@@ -143,7 +143,7 @@ def email():
             server.send_message(msg)
         return "Email sent successfully!"
     except Exception as e:
+        app.logger.error(f"Email failed: {e}")
         return f"Error sending email: {str(e)}", 500
-
 if __name__ == "__main__":
     app.run(debug=True)

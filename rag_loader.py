@@ -1,29 +1,47 @@
-from langchain_community.document_loaders import PyPDFLoader
+import os
+from pathlib import Path
+from langchain_community.document_loaders import PyPDFLoader, TextLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
-import os
 
-# ✅ PDF location (must match where you stored it)
-PDF_PATH = "static/Cocktail Codex PDF.pdf"
+# Configuration
+SOURCE_DIR = "knowledge_base"
+VECTOR_INDEX_DIR = "vector_index"
 
-# ✅ Step 1: Load the PDF
-print("📚 Loading PDF...")
-loader = PyPDFLoader(PDF_PATH)
-documents = loader.load()
+# Embedding model (local, no OpenAI)
+embedding_model = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 
-# ✅ Step 2: Split into manageable chunks
-print("✂️ Splitting document into chunks...")
+# Text splitter config
 splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=100)
-chunks = splitter.split_documents(documents)
 
-# ✅ Step 3: Use local HuggingFace embeddings
-print("🧠 Creating local embeddings...")
-embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+# Collect and split all documents
+all_chunks = []
 
-# ✅ Step 4: Save the FAISS vector index
-print("📦 Saving FAISS index locally...")
-db = FAISS.from_documents(chunks, embeddings)
-db.save_local("codex_faiss_index")
+print("📁 Scanning knowledge_base/ recursively...")
 
-print("✅ RAG embedding with HuggingFace complete.")
+for root, _, files in os.walk(SOURCE_DIR):
+    for file in files:
+        file_path = os.path.join(root, file)
+        ext = Path(file).suffix.lower()
+
+        if ext == ".pdf":
+            print(f"📄 Loading PDF: {file_path}")
+            loader = PyPDFLoader(file_path)
+        elif ext == ".txt":
+            print(f"📄 Loading TXT: {file_path}")
+            loader = TextLoader(file_path)
+        else:
+            print(f"⏭️ Skipping unsupported file: {file_path}")
+            continue
+
+        docs = loader.load()
+        chunks = splitter.split_documents(docs)
+        all_chunks.extend(chunks)
+
+# Build vector index
+print("🧠 Embedding and saving vector index...")
+db = FAISS.from_documents(all_chunks, embedding_model)
+db.save_local(VECTOR_INDEX_DIR)
+
+print("✅ All documents embedded and saved to /vector_index/")
