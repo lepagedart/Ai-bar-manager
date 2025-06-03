@@ -5,7 +5,7 @@ python-dotenv
 reportlab
 requests
 email-validator
-openai == 0.28.0
+openai >=1.10.0
 
 # --- LangChain RAG & PDF Processing ---
 langchain>=0.1.0

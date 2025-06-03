@@ -1,6 +1,9 @@
 from flask import Flask, request, render_template, session, send_file
 from flask_session import Session
-import openai 
+import openai
+from openai import OpenAI
+
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY")) 
 import os
 import io
 from dotenv import load_dotenv
@@ -9,19 +12,19 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 import smtplib
 from email.message import EmailMessage
+from pathlib import Path
 
-# Load environment variables
+print("Loading .env from:", Path(".env").resolve())
 load_dotenv()
 
 # Configure OpenRouter API
-api_key=os.getenv("OPENAI_API_KEY"),
-base_url=os.getenv("OPENAI_BASE_URL")
+# TODO: The 'openai.base_url' option isn't read in the client API. You will need to pass it when you instantiate the client, e.g. 'OpenAI(base_url=os.getenv("OPENAI_BASE_URL"))'
+# openai.base_url = os.getenv("OPENAI_BASE_URL")
 
-# Load system prompt from file
+# Load system prompt
 with open("system_prompt.txt", "r") as file:
     system_prompt = file.read()
 
-# Initialize Flask app and session
 app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY")
 app.config["SESSION_TYPE"] = "filesystem"
@@ -35,7 +38,6 @@ def index():
         session["chat_history"] = []
 
     if request.method == "POST":
-        # Set venue concept if not already defined
         if "concept" not in session or not session["concept"]:
             concept = request.form.get("concept", "").strip()
             if concept:
@@ -43,7 +45,6 @@ def index():
             else:
                 return render_template("index.html", cocktail="", chat_history=session["chat_history"])
 
-        # Handle prompt
         prompt = request.form.get("prompt", "").strip()
         if prompt:
             concept = session.get("concept", "")
@@ -57,12 +58,16 @@ Relevant context from Cocktail Codex:
 User Prompt:
 {prompt}
 """
-            session["chat_history"].append({"role": "user", "content": full_prompt})
+            session["chat_history"].append({
+                "role": "user",
+                "content": prompt,
+                "raw_prompt": full_prompt
+            })
 
-            response = openai.ChatCompletion.create(
-                model="meta-llama/llama-3.3-8b-instruct:free",
-                messages=[{"role": "system", "content": system_prompt}] + session["chat_history"]
-            )
+            response = client.chat.completions.create(model="meta-llama/llama-3.3-8b-instruct:free",
+            messages=[
+                {"role": "system", "content": system_prompt}
+            ] + [{"role": m["role"], "content": m.get("raw_prompt", m["content"])} for m in session["chat_history"]])
 
             reply = response.choices[0].message.content
             session["chat_history"].append({"role": "assistant", "content": reply})
@@ -91,7 +96,8 @@ def download():
 
     for msg in session["chat_history"]:
         speaker = msg["role"].capitalize()
-        for line in f"{speaker}: {msg['content']}".split("\n"):
+        text = f"{speaker}: {msg['content']}"
+        for line in text.split("\n"):
             pdf.drawString(30, y, line[:100])
             y -= 15
             if y < 40:
@@ -100,7 +106,6 @@ def download():
 
     pdf.save()
     buffer.seek(0)
-
     return send_file(buffer, as_attachment=True, download_name="raise_the_bar_ai_summary.pdf", mimetype="application/pdf")
 
 @app.route("/email", methods=["POST"])
@@ -122,7 +127,8 @@ def email():
 
     for msg in session["chat_history"]:
         speaker = msg["role"].capitalize()
-        for line in f"{speaker}: {msg['content']}".split("\n"):
+        text = f"{speaker}: {msg['content']}"
+        for line in text.split("\n"):
             pdf.drawString(30, y, line[:100])
             y -= 15
             if y < 40:
