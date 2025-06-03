@@ -6,7 +6,7 @@ requests==2.32.3
 email-validator==2.1.0.post1
 
 # --- RAG / LLM ---
-openai==0.28.0
+openai>=1.3.8
 langchain==0.1.17
 langchain-core==0.1.48
 langchain-community==0.0.36
