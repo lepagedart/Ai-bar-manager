@@ -17,26 +17,30 @@ from ._markup_annotations import (
     FreeText,
     Highlight,
     Line,
+    Link,
     MarkupAnnotation,
     Polygon,
     PolyLine,
     Rectangle,
     Text,
 )
-from ._non_markup_annotations import Link, Popup
+from ._non_markup_annotations import Popup
 
 __all__ = [
     "NO_FLAGS",
+    # Export abstract base classes so that they are shown in the docs
     "AnnotationDictionary",
+    "MarkupAnnotation",
+    # markup annotations
     "Ellipse",
     "FreeText",
     "Highlight",
     "Line",
     "Link",
-    "MarkupAnnotation",
-    "PolyLine",
     "Polygon",
-    "Popup",
+    "PolyLine",
     "Rectangle",
     "Text",
+    # Non-markup annotations
+    "Popup",
 ]

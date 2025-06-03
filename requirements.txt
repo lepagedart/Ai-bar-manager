@@ -8,9 +8,9 @@ email-validator==2.1.0.post1
 # --- RAG / LLM ---
 openai==0.28.0
 langchain==0.1.17
-langchain-community==0.0.35
-langchain-core==0.1.35
-langchain-text-splitters==0.0.8
+langchain-core==0.1.48
+langchain-community==0.0.36
+langchain-text-splitters==0.0.1
 faiss-cpu==1.11.0
 
 # --- Local Embeddings ---
@@ -20,3 +20,4 @@ sentence-transformers==2.5.1
 tiktoken==0.9.0
 reportlab==4.4.1
 pypdf==3.17.4
+tenacity==8.2.3
