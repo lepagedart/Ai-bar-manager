@@ -72,21 +72,32 @@ def send_email_with_attachment(to_email, subject, body, file_path):
 @app.route("/", methods=["GET", "POST"])
 def index():
     if request.method == "POST":
-        prompt = request.form.get("prompt")
-        email = request.form.get("email")
-        context = retrieve_codex_context(prompt)
+        try:
+            prompt = request.form.get("prompt", "").strip()
+            email = request.form.get("email", "").strip()
 
-        filename = f"cocktail_response_{uuid.uuid4().hex}.pdf"
-        pdf_path = generate_pdf(context, filename)
+            if not prompt:
+                flash("Prompt cannot be empty.", "warning")
+                return render_template("index.html")
 
-        if email:
-            send_email_with_attachment(email, "Your Custom Cocktail Report", "See attached.", pdf_path)
-            flash("📧 Email sent with PDF attached.", "success")
-        else:
-            session["pdf_path"] = pdf_path
-            flash("📄 PDF generated.", "info")
+            context = retrieve_codex_context(prompt)
 
-        return render_template("index.html", response=context, pdf_link=url_for("download_pdf"))
+            filename = f"cocktail_response_{uuid.uuid4().hex}.pdf"
+            pdf_path = generate_pdf(context, filename)
+
+            if email:
+                send_email_with_attachment(email, "Your Custom Cocktail Report", "See attached.", pdf_path)
+                flash("📧 Email sent with PDF attached.", "success")
+            else:
+                session["pdf_path"] = pdf_path
+                flash("📄 PDF generated.", "info")
+
+            return render_template("index.html", response=context, pdf_link=url_for("download_pdf"))
+
+        except Exception as e:
+            print("🔥 Exception occurred:", e)  # Log to terminal
+            flash(f"Error: {str(e)}", "danger")
+            return render_template("index.html")
 
     return render_template("index.html")
 
