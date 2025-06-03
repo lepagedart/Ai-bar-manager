@@ -1,157 +1,102 @@
-from flask import Flask, request, render_template, session, send_file
-from flask_session import Session
-import openai
-from openai import OpenAI
-
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY")) 
 import os
-import io
+import uuid
+from flask import Flask, render_template, request, send_file, session, redirect, url_for, flash
+from flask_session import Session
 from dotenv import load_dotenv
-from rag_retriever import retrieve_codex_context
-from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
 import smtplib
-from email.message import EmailMessage
-from pathlib import Path
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from email.mime.application import MIMEApplication
 
-print("Loading .env from:", Path(".env").resolve())
+from langchain_community.vectorstores import FAISS
+from langchain_community.embeddings import HuggingFaceEmbeddings
+
+# Load .env
 load_dotenv()
 
-# Configure OpenRouter API
-# TODO: The 'openai.base_url' option isn't read in the client API. You will need to pass it when you instantiate the client, e.g. 'OpenAI(base_url=os.getenv("OPENAI_BASE_URL"))'
-# openai.base_url = os.getenv("OPENAI_BASE_URL")
-
-# Load system prompt
-with open("system_prompt.txt", "r") as file:
-    system_prompt = file.read()
-
+# Flask app setup
 app = Flask(__name__)
-app.secret_key = os.getenv("FLASK_SECRET_KEY")
+app.secret_key = os.getenv("FLASK_SECRET_KEY", "supersecret")
 app.config["SESSION_TYPE"] = "filesystem"
 Session(app)
 
+# FAISS and Embedding Model
+VECTOR_INDEX_PATH = "codex_faiss_index"
+embedding_model = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+vectorstore = FAISS.load_local(
+    VECTOR_INDEX_PATH,
+    embeddings=embedding_model,
+    allow_dangerous_deserialization=True
+)
+
+# RAG context retriever
+def retrieve_codex_context(prompt):
+    docs = vectorstore.similarity_search(prompt, k=3)
+    return "\n\n".join(doc.page_content for doc in docs)
+
+# PDF generator
+def generate_pdf(text, filename="response.pdf"):
+    path = os.path.join("static", filename)
+    c = canvas.Canvas(path, pagesize=letter)
+    width, height = letter
+    y = height - 50
+    for line in text.split("\n"):
+        c.drawString(50, y, line)
+        y -= 15
+        if y < 50:
+            c.showPage()
+            y = height - 50
+    c.save()
+    return path
+
+# Email sender
+def send_email_with_attachment(to_email, subject, body, file_path):
+    msg = MIMEMultipart()
+    msg["From"] = os.getenv("EMAIL_USER")
+    msg["To"] = to_email
+    msg["Subject"] = subject
+
+    msg.attach(MIMEText(body, "plain"))
+    with open(file_path, "rb") as file:
+        part = MIMEApplication(file.read(), _subtype="pdf")
+        part.add_header("Content-Disposition", "attachment", filename=os.path.basename(file_path))
+        msg.attach(part)
+
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+        server.login(os.getenv("EMAIL_USER"), os.getenv("EMAIL_PASS"))
+        server.send_message(msg)
+
+# Routes
 @app.route("/", methods=["GET", "POST"])
 def index():
-    cocktail = ""
-
-    if "chat_history" not in session:
-        session["chat_history"] = []
-
     if request.method == "POST":
-        if "concept" not in session or not session["concept"]:
-            concept = request.form.get("concept", "").strip()
-            if concept:
-                session["concept"] = concept
-            else:
-                return render_template("index.html", cocktail="", chat_history=session["chat_history"])
+        prompt = request.form.get("prompt")
+        email = request.form.get("email")
+        context = retrieve_codex_context(prompt)
 
-        prompt = request.form.get("prompt", "").strip()
-        if prompt:
-            concept = session.get("concept", "")
-            context = retrieve_codex_context(prompt)
+        filename = f"cocktail_response_{uuid.uuid4().hex}.pdf"
+        pdf_path = generate_pdf(context, filename)
 
-            full_prompt = f"""Venue Concept: {concept}
+        if email:
+            send_email_with_attachment(email, "Your Custom Cocktail Report", "See attached.", pdf_path)
+            flash("📧 Email sent with PDF attached.", "success")
+        else:
+            session["pdf_path"] = pdf_path
+            flash("📄 PDF generated.", "info")
 
-Relevant context from Cocktail Codex:
-{context}
+        return render_template("index.html", response=context, pdf_link=url_for("download_pdf"))
 
-User Prompt:
-{prompt}
-"""
-            session["chat_history"].append({
-                "role": "user",
-                "content": prompt,
-                "raw_prompt": full_prompt
-            })
+    return render_template("index.html")
 
-            response = client.chat.completions.create(model="meta-llama/llama-3.3-8b-instruct:free",
-            messages=[
-                {"role": "system", "content": system_prompt}
-            ] + [{"role": m["role"], "content": m.get("raw_prompt", m["content"])} for m in session["chat_history"]])
-
-            reply = response.choices[0].message.content
-            session["chat_history"].append({"role": "assistant", "content": reply})
-            cocktail = reply
-
-    return render_template("index.html", cocktail=cocktail, chat_history=session["chat_history"])
-
-@app.route("/reset", methods=["POST"])
-def reset():
-    session.pop("chat_history", None)
-    session.pop("concept", None)
-    return render_template("index.html", cocktail="", chat_history=[])
-
-@app.route("/download", methods=["POST"])
-def download():
-    if "chat_history" not in session or not session["chat_history"]:
-        return "No chat history available", 400
-
-    buffer = io.BytesIO()
-    pdf = canvas.Canvas(buffer, pagesize=letter)
-    width, height = letter
-    y = height - 40
-    pdf.setFont("Helvetica", 12)
-    pdf.drawString(30, y, "Raise the Bar Consulting - AI Session Summary")
-    y -= 30
-
-    for msg in session["chat_history"]:
-        speaker = msg["role"].capitalize()
-        text = f"{speaker}: {msg['content']}"
-        for line in text.split("\n"):
-            pdf.drawString(30, y, line[:100])
-            y -= 15
-            if y < 40:
-                pdf.showPage()
-                y = height - 40
-
-    pdf.save()
-    buffer.seek(0)
-    return send_file(buffer, as_attachment=True, download_name="raise_the_bar_ai_summary.pdf", mimetype="application/pdf")
-
-@app.route("/email", methods=["POST"])
-def email():
-    if "chat_history" not in session or not session["chat_history"]:
-        return "No chat history available", 400
-
-    recipient_email = request.form.get("email", "").strip()
-    if not recipient_email:
-        return "Email address is required", 400
-
-    buffer = io.BytesIO()
-    pdf = canvas.Canvas(buffer, pagesize=letter)
-    width, height = letter
-    y = height - 40
-    pdf.setFont("Helvetica", 12)
-    pdf.drawString(30, y, "Raise the Bar Consulting - AI Session Summary")
-    y -= 30
-
-    for msg in session["chat_history"]:
-        speaker = msg["role"].capitalize()
-        text = f"{speaker}: {msg['content']}"
-        for line in text.split("\n"):
-            pdf.drawString(30, y, line[:100])
-            y -= 15
-            if y < 40:
-                pdf.showPage()
-                y = height - 40
-
-    pdf.save()
-    buffer.seek(0)
-
-    msg = EmailMessage()
-    msg["Subject"] = "Raise the Bar - AI Session Summary"
-    msg["From"] = os.getenv("SMTP_FROM_EMAIL")
-    msg["To"] = recipient_email
-    msg.set_content("Attached is the PDF summary of your session with Raise the Bar AI Bar Manager.")
-    msg.add_attachment(buffer.read(), maintype="application", subtype="pdf", filename="raise_the_bar_ai_summary.pdf")
-
-    try:
-        with smtplib.SMTP_SSL(os.getenv("SMTP_SERVER"), int(os.getenv("SMTP_PORT"))) as server:
-            server.login(os.getenv("SMTP_USERNAME"), os.getenv("SMTP_PASSWORD"))
-            server.send_message(msg)
-        return "Email sent successfully!"
-    except Exception as e:
-        return f"Error sending email: {str(e)}", 500
+@app.route("/download")
+def download_pdf():
+    path = session.get("pdf_path")
+    if path and os.path.exists(path):
+        return send_file(path, as_attachment=True)
+    flash("No PDF to download.", "warning")
+    return redirect(url_for("index"))
 
 if __name__ == "__main__":
     app.run(debug=True)
