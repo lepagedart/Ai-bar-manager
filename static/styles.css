@@ -49,6 +49,16 @@ button:hover {
     background-color: #555;
 }
 
+.response, .conversation-history {
+  white-space: pre-wrap;         /* 🧠 Keeps line breaks and wraps text */
+  word-wrap: break-word;         /* 💥 Breaks long words to prevent overflow */
+  overflow-wrap: break-word;     /* ✅ Ensures compatibility across browsers */
+  max-width: 100%;               /* 👌 Prevents going outside container */
+  overflow-x: auto;              /* Optional: lets users scroll horizontally if needed */
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
 .chat-box {
     background-color: #f1f1f1;
     padding: 15px;
